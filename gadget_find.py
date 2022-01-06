@@ -21,7 +21,7 @@ def decomplier(file):
     """
     decompile_tmp = 'D:\\decompile_tmp'
     cmd = "java -jar d:\\FernFlower.jar " + file + " " + decompile_tmp + ' > nul 2>&1'
-    print cmd
+    print(cmd)
     os.system(cmd)
 
     jar_file_name = file.split('\\')[-1]
@@ -31,15 +31,15 @@ def decomplier(file):
     target_dir = jar_file_name.split('.')[:-1]
     source_dir = '.'.join(target_dir)
     source_dir = decompile_tmp + '\\' + source_dir
-    unzip_cmd = "unzip -o " + jar_file_path + " -d " + source_dir + ' > nul 2>&1'
+    unzip_cmd = "D:\\unzip.exe -o " + jar_file_path + " -d " + source_dir + ' > nul 2>&1'
     #print unzip_cmd
     if os.system(unzip_cmd) == 0:
         return source_dir
     cmd = 'java -jar d:\\procyon-decompiler.jar ' + file + ' -o ' + source_dir + ' > nul 2>&1'
-    print cmd
+    print(cmd)
     if os.system(cmd) == 0:
         return source_dir
-    print '#####' + file + ' decompile fail'
+    print('#####' + file + ' decompile fail')
     return ''
     
 def get_class_declaration(root):
@@ -96,6 +96,30 @@ def get_class_extends_xx(root, xx):
                 continue
             class_list.append(node.name)
     return class_list
+    
+def find_method_call(method_node, name):
+    target_variables = []
+    for path, node in method_node:
+        # 是否调用lookup 方法
+        if isinstance(node, tree.MethodInvocation) and node.member == name:
+            # 只能有一个参数。
+            if len(node.arguments) != 1:
+                continue
+            # 参数类型必须是变量，且必须可控
+            arg = node.arguments[0]
+            if isinstance(arg, tree.Cast):    # 变量 类型强转
+                target_variables.append(arg.expression.member)
+            if isinstance(arg, tree.MemberReference):  # 变量引用
+                target_variables.append(arg.member)
+            if isinstance(arg, tree.This):       # this.name， 类的属性也是可控的
+                return True
+    if len(target_variables) == 0:
+        return False
+    # 判断方法参数，是否来自于方法的入参，只有来自入参才认为可控
+    for parameter in method_node.parameters:
+        if parameter.name in target_variables:
+            return True
+    return False
     
 def ack(method_node):
     """
@@ -169,10 +193,10 @@ def find_gadget(jardir):
                     for elem in class_list:
                         for path_1, node_1 in elem:
                             if isinstance(node_1, tree.MethodDeclaration):
-                                if ack(node_1) is True:
-                                    print "***** Found in " + javaFile + ", method:" +node_1.name
+                                if find_method_call(node_1, 'exec') is True:
+                                    print("***** Found in " + javaFile + ", method:" +node_1.name)
         except Exception as e:
-            print e
+            print(e)
             traceback.print_exc()
             
 def find_class(jardir):
@@ -196,13 +220,12 @@ def find_class(jardir):
                     root = javalang.parse.parse(content)
                     class_list = get_class_extends_xx(root, 'Exception')
                     if(len(class_list)>0):
-                        print "***** Found in " + javaFile
-                        print class_list
+                        print("***** Found in " + javaFile)
+                        print(class_list)
         except Exception as e:
-            print e
+            print(e)
             traceback.print_exc()
-#find_gadget("C:\\Users\\f00496378\\.m2\\repository\\com\\huawei")
-#find_gadget("C:\\Users\\f00496378\\.m2\\repository")
-#find_gadget("D:\\TEST_JAR")
+
+find_gadget("D:\\temp\\lib")
 #find_class("D:\\TEST_JAR")
-find_class("C:\\Users\\f00496378\\.m2\\repository")
+#find_class("C:\\Users\\f00496378\\.m2\\repository")
